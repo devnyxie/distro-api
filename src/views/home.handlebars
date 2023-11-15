@@ -1,0 +1,50 @@
+<div style='width: 100%;'>
+  <div class='d-flex align-items-center'>
+    <h1>Distro-API</h1><img
+      src='views_assets/cat.gif'
+      style='height: 80px; width: auto;'
+    /></div>
+  <p>Distro-API is a free API to fetch all available information about Linux
+    Distrubutions, while also retrieving icons and generating custom badges for
+    each distro.</p>
+  <div style='width: 100%; display: flex; flex-direction: column;'>
+    <ul>
+      {{#each distros}}
+        <li style='margin-top: 10px; margin-bottom: 10px; '>{{name}}
+          <div><a href='{{homepage}}'>Homepage</a></div>
+          <div><a href='{{distrowatch_page}}'>Distrowatch page</a></div>
+          <div>{{description}}</div>
+          <div style='display: flex;'>
+            {{#checkNull image_path}}
+              <div style='margin-right: 5px;'>
+                <a href='{{current_url}}{{image_path}}'><img
+                    loading='lazy'
+                    src='{{current_url}}{{image_path}}'
+                    style='height: 20px; width: auto;'
+                  /></a>
+              </div>
+            {{/checkNull}}
+            {{#checkNull light_badge_path}}
+              <div>
+                <a href='{{current_url}}{{light_badge_path}}'><img
+                    loading='lazy'
+                    src='{{current_url}}{{light_badge_path}}'
+                    style='height: 20px; width: auto;'
+                  /></a>
+              </div>
+            {{/checkNull}}
+            {{#checkNull dark_badge_path}}
+              <div>
+                <a href='{{current_url}}{{dark_badge_path}}'><img
+                    loading='lazy'
+                    src='{{current_url}}{{dark_badge_path}}'
+                    style='height: 20px; width: auto;'
+                  /></a>
+              </div>
+            {{/checkNull}}
+          </div>
+        </li>
+      {{/each}}
+    </ul>
+  </div>
+</div>
