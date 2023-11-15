@@ -18,7 +18,7 @@ router.get('/scan', async (req, res) => {
 
     //  --- fetch favicons block --- requires only distros array
     const fetchIconPromises = distros.map(async (distro, index) => {
-      const response = await fetchIcon(distro, fullUrl);
+      const response = await fetchIcon(distro, fullUrl); //here
       distros[index]['image_path'] = response.path;
       return;
     });
