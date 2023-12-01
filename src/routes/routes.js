@@ -121,10 +121,10 @@ if (process.env.ENVIRONMENT === 'development') {
   \n
   \n
   <br/>\n \n`;
-      let tableStart = `| Distribution | Icon | Light Badge | Dark Badge | Description |\n| ---- | :---: | :---: | :---: | --- |\n`;
+      let tableStart = `| Distribution | Icon | Light Badge | Dark Badge |\n| ---- | :---: | :---: | :---: |\n`;
 
       distros.forEach((obj) => {
-        tableStart += `| ${obj.name} | <img height="30px" width="max-content" src="${obj.image_path}"/> | <img height="30px" width="max-content" src="${obj.light_badge_path}"/> | <img height="30px" width="max-content" src="${obj.dark_badge_path}"/> | <p style="max-width: 350px;">${obj.description}</p> |\n`;
+        tableStart += `| ${obj.name} | <img height="30px" width="max-content" src="${obj.image_path}"/> | <img height="30px" width="max-content" src="${obj.light_badge_path}"/> | <img height="30px" width="max-content" src="${obj.dark_badge_path}"/> |\n`;
       });
       markdownContent = markdownContent + tableStart;
       fs.writeFileSync('README.md', markdownContent, 'utf-8');
