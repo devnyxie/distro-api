@@ -84,7 +84,9 @@ if (process.env.ENVIRONMENT === 'development') {
 
   ## Endpoints and Examples
   - All distributions:
+  \n
   Endpoint: */distributions*
+  \n
   Response example:
   \`\`\`
   [
@@ -103,7 +105,9 @@ if (process.env.ENVIRONMENT === 'development') {
   ]
   \`\`\`
   - Single distribution:
+  \n
   Endpoint: */distribution?identifier=mx_linux*
+  \n
   Response example:
   \`\`\`
   {

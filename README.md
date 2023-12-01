@@ -6,7 +6,11 @@
 
   ## Endpoints and Examples
   - All distributions:
+  
+
   Endpoint: */distributions*
+  
+
   Response example:
   ```
   [
@@ -25,7 +29,11 @@
   ]
   ```
   - Single distribution:
+  
+
   Endpoint: */distribution?identifier=mx_linux*
+  
+
   Response example:
   ```
   {
