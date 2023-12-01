@@ -4,7 +4,7 @@ import {
   getAllDistributions,
   loadPage,
   saveDistrosToDB,
-} from '../../utils/general.js';
+} from '../utils/general.js';
 import path from 'path';
 import { spawn } from 'child_process';
 
@@ -17,7 +17,6 @@ async function runDistroWorker() {
         path.resolve(
           path.resolve('.'),
           'src',
-          'sources',
           'distrowatch',
           'distroWorker.js'
         ),
@@ -68,7 +67,7 @@ export const exportAllDistros = async () => {
       }
     }
   });
-  saveDistrosToDB(links);
+  await saveDistrosToDB(links);
   await runDistroWorker();
   const data = await getAllDistributions();
   return data;

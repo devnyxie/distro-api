@@ -1,13 +1,26 @@
 import puppeteer from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { exit } from 'process';
-import imageType from 'image-type';
 import path from 'path';
 import fs from 'fs/promises';
-import { v4 as uuidv4 } from 'uuid';
-import sqlite3 from 'sqlite3';
+import { v2 as cloudinary } from 'cloudinary';
+import pg from 'pg';
+import dotenv from 'dotenv';
+dotenv.config();
 
-//
+// -----
+
+//cloudinary
+console.error('cloudinary config...');
+
+cloudinary.config({
+  secure: true,
+  cloud_name: process.env.cloud_name,
+  api_key: process.env.api_key,
+  api_secret: process.env.api_secret,
+});
+
+// -----
 
 export function extractFormat(url) {
   const format = url.match(/\.([^/?#]+)(?:[?#]|$)/i);
@@ -99,12 +112,52 @@ export async function extractIcon(html, distro, page) {
   }
   //end of image block
 }
-
+export async function saveIcon(html, distro, page) {
+  console.error('saveIcon block');
+  try {
+    let modified_distro = distro;
+    const imgSrc = `https://distrowatch.com/${html.find('img').attr('src')}`;
+    const response = await page.goto(imgSrc, {
+      waitUntil: 'networkidle0',
+      responseType: 'arraybuffer',
+    });
+    console.log(response);
+    const imageBuffer = await response.buffer();
+    console.log(imageBuffer);
+    const res = await uploadImage(imageBuffer, {
+      resource_type: 'image',
+      use_filename: true,
+      unique_filename: false,
+      overwrite: true,
+      folder: 'icons',
+      public_id: `${distro.identifier}.png`,
+    });
+    console.log(res);
+    modified_distro['image_path'] = res.url;
+    return modified_distro;
+  } catch (error) {
+    console.error(error);
+    return distro;
+  }
+}
+// export async function saveBadge(imageBuffer, options) {
+//   const data = cloudinary.uploader
+//     .upload_stream(options, (error, result) => {
+//       if (error) {
+//         console.error(error);
+//         return null;
+//       } else {
+//         console.log(result);
+//         return result;
+//       }
+//     })
+//     .end(imageBuffer);
+//   return data;
+// }
 export function saveOneDistroToDB(distro, pool) {
   console.error('saveOneDistroToDB block');
 
   try {
-    distro['id'] = uuidv4();
     if (distro['distrowatch_image_path']) {
       delete distro.distrowatch_image_path;
     }
@@ -116,7 +169,7 @@ export function saveOneDistroToDB(distro, pool) {
     ON CONFLICT (identifier) DO UPDATE
     SET ${columns.map((col, index) => `${col} = $${index + 1}`).join(', ')}
     RETURNING *;`;
-    pool.run(insertQuery, values, (err, rows) => {
+    pool.query(insertQuery, values, (err, rows) => {
       if (err) {
         console.error('Error executing query:', err);
       } else {
@@ -127,69 +180,53 @@ export function saveOneDistroToDB(distro, pool) {
     console.error(error);
   }
 }
-
 export async function createBadgesForOneDistro(distro, browser) {
   console.error('createBadgesForOneDistro...');
   const page = await browser.newPage();
   try {
     if (!distro.image_path) {
       console.error('exception...');
-
       throw new Error(
         `${distro.name}: No image_path found, aborting creation of a badges.`
       );
     }
     for (const theme of ['light', 'dark']) {
       console.error('for each theme...');
-
-      const iconPath = path.join(
-        path.resolve('.'),
-        'public',
-        `${theme}_badges`,
-        `${distro.identifier}.png`
-      );
       const html_content = `
           <head>
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>*{font-family: 'JetBrains Mono', monospace;}</style>
+            <link href="https://fonts.googleapis.com/css2?family=Ubuntu&display=swap" rel="stylesheet">
+            <style>*{font-family: 'Ubuntu', sans-serif;}</style>
           </head>
-          <div id="target" style="height: min-content; width: max-content; padding: 8px; padding-right: 10px; padding-left: 10px; display: flex; justify-content: center; align-items: center; background-color: ${
-            theme == 'dark' ? '#0D1117' : 'white'
-          }; color: ${theme == 'dark' ? 'white' : 'black'};">
-            <img style="height: 70px; width: auto; margin-right: 10px;" src="${
-              distro['distrowatch_image_path']
+          <div id="target" style="font-size: 70px; line-height: 70px; height: min-content; width: max-content; padding: 10px; padding-right: 20px; padding-left: 20px; display: flex; justify-content: center; align-items: center; background-color: ${
+            theme == 'dark' ? '#333333' : 'white'
+          }; color: ${theme == 'dark' ? 'white' : '#333333'};">
+            <img style="height: 70px; width: auto; margin-right: 15px;" src="${
+              distro['image_path']
             }"/>
             <div id="distro">${distro.name}</div>
           </div>
         `;
-
-      // Set the HTML content of the page
-      console.error('setting the content of page...', html_content);
       await page.setContent(html_content);
-
-      // Take a screenshot of the div with id "target"
-      console.error('screenshoting...');
-
       const screenshotBuffer = await page.screenshot({
         clip: await page.$eval('#target', (target) => {
+          console.error(target);
           const { x, y, width, height } = target.getBoundingClientRect();
           return { x, y, width, height };
         }),
       });
-      console.error('writing to a file...');
-
-      await fs.writeFile(iconPath, screenshotBuffer);
-
-      const badge_path = `${path.join(
-        `/${theme}_badges`,
-        `${distro.identifier}.png`
-      )}`;
+      const res = await uploadImage(screenshotBuffer, {
+        resource_type: 'image',
+        use_filename: true,
+        unique_filename: false,
+        overwrite: true,
+        folder: `${theme}_badges`,
+        public_id: `${distro.identifier}.png`,
+      });
       const badge_path_name =
         theme == 'dark' ? 'dark_badge_path' : 'light_badge_path';
-
-      distro[badge_path_name] = badge_path;
+      distro[badge_path_name] = res.url;
       console.error(
         `Successfully created ${theme} badge for ${distro.name} ✅`
       );
@@ -202,13 +239,40 @@ export async function createBadgesForOneDistro(distro, browser) {
   await page.close();
   return distro;
 }
+const uploadImage = (imageBuffer, options) => {
+  console.error('uploadImage');
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      options,
+      (error, result) => {
+        if (error) {
+          console.error(error);
+          reject(error);
+        } else {
+          console.error('uploadImage end');
+          resolve(result);
+        }
+      }
+    );
 
-//db pool                                                ---  DON'T FORGET TO CLOSE AT THE END!
-const pool = new sqlite3.Database('database.db', (err) => {
+    uploadStream.end(imageBuffer);
+  });
+};
+//pg
+console.error('connecting to PG...');
+export const pool = new pg.Pool({
+  user: process.env.PG_USER,
+  host: process.env.PG_HOST,
+  database: process.env.PG_DATABASE,
+  password: process.env.PG_PASSWORD,
+  port: process.env.PG_PORT,
+});
+console.error(pool);
+pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error(err.message);
+    console.error('Error executing query', err);
   } else {
-    console.log('Connected to the SQLite database, configuring the DB...');
+    console.error('Connected to PostgreSQL database');
   }
 });
 
@@ -219,14 +283,14 @@ const browser = await puppeteer.launch({
   args: ['--no-sandbox', '--disable-setuid-sandbox'],
 });
 
-//distros
+//get all distros
 const distros = await new Promise((resolve, reject) => {
-  pool.all(`SELECT * FROM distributions;`, function (getErr, rows) {
+  pool.query(`SELECT * FROM distributions;`, function (getErr, data) {
     if (getErr) {
       reject(getErr);
     } else {
-      if (rows) {
-        resolve(rows);
+      if (data) {
+        resolve(data.rows);
       } else {
         resolve(null);
       }
@@ -251,7 +315,8 @@ try {
       const tdWithTitle = $_wm('td.TablesTitle');
       if (tdWithTitle.length > 0) {
         const clonedTd = tdWithTitle.clone();
-        distro = await extractIcon(clonedTd, distro, page);
+        // distro = await extractIcon(clonedTd, distro, page);
+        distro = await saveIcon(clonedTd, distro, page);
         distro = extractHomepage($_wm, distro);
         distro = extractDescription(clonedTd, distro);
         distro = await createBadgesForOneDistro(distro, browser);
@@ -261,7 +326,7 @@ try {
         );
       }
       await page.close();
-      console.log(JSON.stringify(distro));
+      console.error(JSON.stringify(distro));
     } catch (error) {
       console.error(error);
     }
@@ -270,5 +335,6 @@ try {
   console.error(error);
 } finally {
   await browser.close();
+  pool.end();
   exit();
 }
